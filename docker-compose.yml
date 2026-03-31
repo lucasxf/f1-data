@@ -1,0 +1,67 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg15
+    container_name: f1-postgres
+    environment:
+      POSTGRES_USER: ${DB_USER:-f1}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-f1}
+      POSTGRES_DB: ${DB_NAME:-f1}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-f1}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  metabase:
+    image: metabase/metabase:latest
+    container_name: f1-metabase
+    ports:
+      - "3000:3000"
+    environment:
+      # Metabase app database (uses the same PostgreSQL instance)
+      MB_DB_TYPE: postgres
+      MB_DB_HOST: postgres
+      MB_DB_PORT: 5432
+      MB_DB_DBNAME: ${DB_NAME:-f1}
+      MB_DB_USER: ${DB_USER:-f1}
+      MB_DB_PASS: ${DB_PASSWORD:-f1}
+      # LLM integration (BYOK -- required for /api/llm/generate-sql)
+      MB_LLM_ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # Admin setup
+      MB_ADMIN_EMAIL: ${MB_ADMIN_EMAIL:-admin@f1.local}
+      MB_ADMIN_PASSWORD: ${MB_ADMIN_PASSWORD:-metabase123}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: f1-backend
+    ports:
+      - "8080:8080"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-f1}
+      DB_USER: ${DB_USER:-f1}
+      DB_PASSWORD: ${DB_PASSWORD:-f1}
+      METABASE_URL: http://metabase:3000
+      METABASE_PUBLIC_URL: http://localhost:3000
+      MB_ADMIN_EMAIL: ${MB_ADMIN_EMAIL:-admin@f1.local}
+      MB_ADMIN_PASSWORD: ${MB_ADMIN_PASSWORD:-metabase123}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
