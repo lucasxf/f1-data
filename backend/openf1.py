@@ -33,3 +33,8 @@ def get_laps(session_key: int) -> list[dict]:
 def get_top_speed_telemetry(session_key: int, speed_threshold: int = 250) -> list[dict]:
     """Fetch only high-speed telemetry to avoid downloading 585K rows."""
     return _get("car_data", session_key=session_key, raw=f"speed>={speed_threshold}")
+
+
+def get_positions(session_key: int) -> list[dict]:
+    """Fetch all position snapshots for a session. Final position = latest entry per driver."""
+    return _get("position", session_key=session_key)

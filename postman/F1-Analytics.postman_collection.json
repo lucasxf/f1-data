@@ -1,0 +1,162 @@
+{
+  "info": {
+    "name": "F1 Analytics",
+    "description": "API collection for the F1 x Metabase Analytics project. Set the `circuit` and `year` collection variables before running.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "circuit",
+      "value": "Suzuka",
+      "type": "string",
+      "description": "OpenF1 circuit_short_name — e.g. Suzuka, Melbourne, Shanghai, Monza, Spa-Francorchamps, Monte Carlo"
+    },
+    {
+      "key": "year",
+      "value": "2026",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ingestion",
+      "item": [
+        {
+          "name": "Ingest race",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/ingest",
+              "host": ["{{base_url}}"],
+              "path": ["api", "ingest"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"circuit\": \"{{circuit}}\",\n  \"year\": {{year}},\n  \"session_type\": \"Race\"\n}"
+            },
+            "description": "Ingest a race session from OpenF1. Change the `circuit` and `year` collection variables to switch races.\n\nCircuit name examples: Suzuka, Melbourne, Shanghai, Monza, Spa-Francorchamps, Monte Carlo, São Paulo"
+          }
+        },
+        {
+          "name": "List ingested sessions",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/sessions",
+              "host": ["{{base_url}}"],
+              "path": ["api", "sessions"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Queries",
+      "item": [
+        {
+          "name": "Ask a question (NL)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/ask",
+              "host": ["{{base_url}}"],
+              "path": ["api", "ask"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"Who had the top speed at {{circuit}} in {{year}}?\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Generate chart",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/chart",
+              "host": ["{{base_url}}"],
+              "path": ["api", "chart"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prompt\": \"Top 10 lap times at {{circuit}} {{year}}, fastest first\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Points",
+      "item": [
+        {
+          "name": "Points efficiency — single race",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/points-chart",
+              "host": ["{{base_url}}"],
+              "path": ["api", "points-chart"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"circuit\": \"{{circuit}}\",\n  \"year\": {{year}}\n}"
+            },
+            "description": "Returns a Metabase pie chart embed URL showing each team's points efficiency (points / 101) for a single race."
+          }
+        },
+        {
+          "name": "Points efficiency — full season",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/points-chart",
+              "host": ["{{base_url}}"],
+              "path": ["api", "points-chart"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"year\": {{year}}\n}"
+            },
+            "description": "Omitting `circuit` triggers championship mode — cumulative efficiency across all ingested races for the year."
+          }
+        }
+      ]
+    }
+  ]
+}

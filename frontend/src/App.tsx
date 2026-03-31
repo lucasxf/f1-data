@@ -2,7 +2,7 @@ import { useState } from 'react'
 
 const BACKEND = ''  // proxied via Vite to localhost:8080
 
-type Mode = 'ask' | 'chart'
+type Mode = 'ask' | 'chart' | 'points'
 
 interface AskResult {
   answer: Record<string, unknown>[]
@@ -14,36 +14,77 @@ interface ChartResult {
   sql: string
 }
 
+interface PointsBreakdownRow {
+  team_name: string
+  team_colour: string | null
+  team_points: number
+  efficiency_pct: number
+}
+
+interface PointsResult {
+  embed_url: string
+  sql: string
+  breakdown: PointsBreakdownRow[]
+}
+
 export default function App() {
   const [mode, setMode] = useState<Mode>('ask')
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [askResult, setAskResult] = useState<AskResult | null>(null)
   const [chartResult, setChartResult] = useState<ChartResult | null>(null)
+  const [pointsResult, setPointsResult] = useState<PointsResult | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  // Points mode uses separate inputs
+  const [pointsCircuit, setPointsCircuit] = useState('')
+  const [pointsYear, setPointsYear] = useState(2026)
+
+  function clearResults() {
+    setAskResult(null)
+    setChartResult(null)
+    setPointsResult(null)
+    setError(null)
+  }
+
   async function submit() {
-    if (!input.trim()) return
+    if (mode !== 'points' && !input.trim()) return
     setLoading(true)
     setError(null)
     setAskResult(null)
     setChartResult(null)
+    setPointsResult(null)
 
     try {
-      const endpoint = mode === 'ask' ? '/api/ask' : '/api/chart'
-      const body = mode === 'ask' ? { question: input } : { prompt: input }
-      const resp = await fetch(`${BACKEND}${endpoint}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({}))
-        throw new Error(err.detail ?? `HTTP ${resp.status}`)
+      if (mode === 'points') {
+        const body: Record<string, unknown> = { year: pointsYear }
+        if (pointsCircuit.trim()) body.circuit = pointsCircuit.trim()
+        const resp = await fetch(`${BACKEND}/api/points-chart`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}))
+          throw new Error(err.detail ?? `HTTP ${resp.status}`)
+        }
+        setPointsResult(await resp.json())
+      } else {
+        const endpoint = mode === 'ask' ? '/api/ask' : '/api/chart'
+        const body = mode === 'ask' ? { question: input } : { prompt: input }
+        const resp = await fetch(`${BACKEND}${endpoint}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}))
+          throw new Error(err.detail ?? `HTTP ${resp.status}`)
+        }
+        const data = await resp.json()
+        if (mode === 'ask') setAskResult(data)
+        else setChartResult(data)
       }
-      const data = await resp.json()
-      if (mode === 'ask') setAskResult(data)
-      else setChartResult(data)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -61,35 +102,62 @@ export default function App() {
       <main style={styles.main}>
         {/* Mode toggle */}
         <div style={styles.tabs}>
-          {(['ask', 'chart'] as Mode[]).map((m) => (
+          {(['ask', 'chart', 'points'] as Mode[]).map((m) => (
             <button
               key={m}
               style={{ ...styles.tab, ...(mode === m ? styles.tabActive : {}) }}
-              onClick={() => { setMode(m); setAskResult(null); setChartResult(null); setError(null) }}
+              onClick={() => { setMode(m); clearResults() }}
             >
-              {m === 'ask' ? 'Ask a Question' : 'Generate Chart'}
+              {m === 'ask' ? 'Ask a Question' : m === 'chart' ? 'Generate Chart' : 'Points %'}
             </button>
           ))}
         </div>
 
-        {/* Input */}
-        <div style={styles.inputRow}>
-          <input
-            style={styles.input}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && submit()}
-            placeholder={
-              mode === 'ask'
-                ? 'Who had the top speed at Suzuka in 2026?'
-                : 'Top 10 lap times at Suzuka, fastest first'
-            }
-            disabled={loading}
-          />
-          <button style={styles.button} onClick={submit} disabled={loading}>
-            {loading ? '...' : mode === 'ask' ? 'Ask' : 'Chart'}
-          </button>
-        </div>
+        {/* Input — ask/chart modes */}
+        {mode !== 'points' && (
+          <div style={styles.inputRow}>
+            <input
+              style={styles.input}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && submit()}
+              placeholder={
+                mode === 'ask'
+                  ? 'Who had the top speed at Suzuka in 2026?'
+                  : 'Top 10 lap times at Suzuka, fastest first'
+              }
+              disabled={loading}
+            />
+            <button style={styles.button} onClick={submit} disabled={loading}>
+              {loading ? '...' : mode === 'ask' ? 'Ask' : 'Chart'}
+            </button>
+          </div>
+        )}
+
+        {/* Input — points mode */}
+        {mode === 'points' && (
+          <div style={styles.inputRow}>
+            <input
+              style={{ ...styles.input, flex: 2 }}
+              value={pointsCircuit}
+              onChange={(e) => setPointsCircuit(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && submit()}
+              placeholder="Circuit name (e.g. Suzuka) — leave blank for full season"
+              disabled={loading}
+            />
+            <input
+              style={{ ...styles.input, flex: '0 0 90px', textAlign: 'center' }}
+              type="number"
+              value={pointsYear}
+              onChange={(e) => setPointsYear(Number(e.target.value))}
+              onKeyDown={(e) => e.key === 'Enter' && submit()}
+              disabled={loading}
+            />
+            <button style={styles.button} onClick={submit} disabled={loading}>
+              {loading ? '...' : 'Show'}
+            </button>
+          </div>
+        )}
 
         {/* Error */}
         {error && <div style={styles.error}>{error}</div>}
@@ -119,6 +187,22 @@ export default function App() {
             </details>
           </div>
         )}
+
+        {/* Points result */}
+        {pointsResult && (
+          <div style={styles.resultBox}>
+            <iframe
+              src={pointsResult.embed_url}
+              style={styles.iframe}
+              title="Points Efficiency Chart"
+            />
+            <BreakdownTable rows={pointsResult.breakdown} />
+            <details style={styles.sqlDetails}>
+              <summary>SQL</summary>
+              <pre style={styles.sql}>{pointsResult.sql}</pre>
+            </details>
+          </div>
+        )}
       </main>
     </div>
   )
@@ -139,6 +223,45 @@ function ResultTable({ rows }: { rows: Record<string, unknown>[] }) {
           {rows.map((row, i) => (
             <tr key={i}>
               {cols.map((c) => <td key={c} style={styles.td}>{String(row[c] ?? '')}</td>)}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function BreakdownTable({ rows }: { rows: PointsBreakdownRow[] }) {
+  if (!rows?.length) return null
+  return (
+    <div style={{ overflowX: 'auto' }}>
+      <table style={styles.table}>
+        <thead>
+          <tr>
+            <th style={styles.th}>Team</th>
+            <th style={{ ...styles.th, textAlign: 'right' }}>Points</th>
+            <th style={{ ...styles.th, textAlign: 'right' }}>Efficiency %</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.team_name}>
+              <td style={styles.td}>
+                {row.team_colour && (
+                  <span style={{
+                    display: 'inline-block',
+                    width: 12,
+                    height: 12,
+                    borderRadius: 2,
+                    background: row.team_colour,
+                    marginRight: 8,
+                    verticalAlign: 'middle',
+                  }} />
+                )}
+                {row.team_name}
+              </td>
+              <td style={{ ...styles.td, textAlign: 'right' }}>{row.team_points}</td>
+              <td style={{ ...styles.td, textAlign: 'right' }}>{row.efficiency_pct.toFixed(2)}%</td>
             </tr>
           ))}
         </tbody>
