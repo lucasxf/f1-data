@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS f1_data.drivers (
     full_name      VARCHAR(200),
     name_acronym   VARCHAR(5),
     team_name      VARCHAR(100),
+    team_colour    VARCHAR(7),
     UNIQUE(session_key, driver_number)
 );
 
@@ -46,5 +47,17 @@ CREATE TABLE IF NOT EXISTS f1_data.top_speeds (
     driver_number  INTEGER NOT NULL,
     max_speed      INTEGER,
     recorded_at    TIMESTAMP,
+    UNIQUE(session_key, driver_number)
+);
+
+-- Race results: final position + points earned per driver per session
+CREATE TABLE IF NOT EXISTS f1_data.race_results (
+    id             SERIAL PRIMARY KEY,
+    session_key    INTEGER NOT NULL REFERENCES f1_data.sessions(session_key),
+    driver_number  INTEGER NOT NULL,
+    final_position INTEGER NOT NULL,
+    points_earned  INTEGER NOT NULL DEFAULT 0,
+    team_name      VARCHAR(100),
+    team_colour    VARCHAR(7),
     UNIQUE(session_key, driver_number)
 );

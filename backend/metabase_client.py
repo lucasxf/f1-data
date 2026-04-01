@@ -90,7 +90,13 @@ def run_native_query(database_id: int, sql: str) -> list[dict]:
     return [dict(zip(cols, row)) for row in data["data"]["rows"]]
 
 
-def create_card(database_id: int, sql: str, name: str, display: str = "table") -> dict:
+def create_card(
+    database_id: int,
+    sql: str,
+    name: str,
+    display: str = "table",
+    visualization_settings: dict | None = None,
+) -> dict:
     """Create a saved question (card) in Metabase."""
     resp = requests.post(
         f"{_mb_url}/api/card",
@@ -103,7 +109,7 @@ def create_card(database_id: int, sql: str, name: str, display: str = "table") -
                 "type": "native",
                 "native": {"query": sql},
             },
-            "visualization_settings": {},
+            "visualization_settings": visualization_settings or {},
         },
         timeout=15,
     )
